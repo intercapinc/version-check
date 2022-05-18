@@ -1,0 +1,48 @@
+name: 'check-version'
+
+inputs:
+    ignore-diff-on:
+        required: true
+        description: |
+            Files and paths to ignore.
+            Ex: '.github/* log/* public/* spec/* storage/* tmp/* README.md'.
+
+    version:
+        required: true
+        description: |
+            Version of the app.
+            Ex: '1.0.0'.
+
+runs:
+    using: 'composite'
+
+    steps:
+        - name: 'Check changes'
+          shell: 'bash'
+          id: 'check-changes'
+          run: |
+              last_tagged_commit=$(git describe --tags --abbrev=0 --first-parent)
+
+              if git diff-index --name-only --exit-code $last_tagged_commit -- . $(echo " ${{ inputs.ignore-diff-on }}" | sed 's/ / :(exclude)/g'); then
+                  echo 'No functional changes detected.'
+                  echo 'No need for a version update.'
+                  echo "::set-output name=continue::no"''
+              else
+                  echo 'The functional files above were changed.'
+                  echo "::set-output name=continue::yes"''
+              fi
+
+        - name: 'Check version'
+          if: "${{ steps.check-changes.outputs.continue == 'yes' }}"
+          shell: 'bash'
+          run: |
+              if git rev-parse --verify --quiet ${{ inputs.version }}; then
+                  echo 'Version ${{ inputs.version }} already exists in commit:'
+                  git --no-pager log -1 ${{ inputs.version }}
+                  echo
+                  echo 'Update the version number in package.json before'
+                  echo 'merging this branch into develop. Look at the following Confluence'
+                  echo 'entry to learn how the version number should be updated:'
+                  echo 'https://intercap-inc.atlassian.net/wiki/spaces/PRODUCT/pages/10944513/Pull+Requests#Conclusion'
+                  exit 1
+              fi
