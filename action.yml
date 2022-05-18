@@ -1,4 +1,4 @@
-name: 'check-version'
+name: 'version-check'
 
 inputs:
     ignore-diff-on:
